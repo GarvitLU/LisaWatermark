@@ -1,0 +1,349 @@
+# Video watermark project .gitignore
+
+# Project-specific directories
+uploads/
+outputs/
+
+# Temporary and test files
+test_*.mp4
+*_temp.mp4
+temp_*.mp4
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# PEP 582
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+
+# Dump file
+*.stackdump
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# Linux
+*~
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# KDE directory preferences
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Configuration files with sensitive data
+config.ini
+secrets.json
+.env.local
+.env.production
+
+# Large media files (if any get accidentally added)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+*.m4v
+*.3gp
+*.ogv
+*.ts
+*.mts
+*.m2ts
+*.vob
+*.asf
+*.wma
+*.wmv
+*.rm
+*.rmvb
+*.amv
+*.divx
+*.f4v
+*.f4p
+*.f4a
+*.f4b
+*.mxf
+*.xvid
+*.mpg
+*.mpeg
+*.mpe
+*.m1v
+*.m2v
+*.mpv
+*.mpv2
+*.m2p
+*.ps
+*.vts
+*.ogx
+*.ogm
+*.spx
+*.opus
+*.aac
+*.ac3
+*.eac3
+*.dts
+*.dtshd
+*.dtsma
+*.truehd
+*.mlp
+*.pcm
+*.wav
+*.aiff
+*.aif
+*.aifc
+*.au
+*.flac
+*.ape
+*.wv
+*.m4a
+*.m4b
+*.m4p
+*.m4r
+*.3ga
+*.aac
+*.amr
+*.awb
+*.mka
+*.ra
+*.rm
+*.wma
+*.wax
+*.wm
+*.wmp
+*.wmv
+*.wmx
+*.wvx
+*.asf
+*.asx
+*.avi
+*.bin
+*.cda
+*.divx
+*.dv
+*.dvr-ms
+*.ifo
+*.m1v
+*.m2p
+*.m2t
+*.m2ts
+*.m2v
+*.m4e
+*.m4p
+*.m4v
+*.mjp
+*.mjpeg
+*.mjpg
+*.mod
+*.mov
+*.mp1
+*.mp2
+*.mp2v
+*.mp3
+*.mp4
+*.mp4v
+*.mpe
+*.mpeg
+*.mpg
+*.mpv
+*.mpv2
+*.mts
+*.ogm
+*.qt
+*.qtl
+*.qtx
+*.rm
+*.rmi
+*.rmm
+*.rmvb
+*.rpm
+*.smil
+*.smi
+*.swf
+*.ts
+*.vcd
+*.vob
+*.wmv
+*.wmx
+*.wvx
+*.xvid 
