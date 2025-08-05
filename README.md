@@ -1,169 +1,191 @@
-# Video Watermarking Script
+# Video Watermarking API
 
-This Python script adds watermarks to videos that change position every X seconds throughout the entire video. The watermark "Created using LisaApp.in – AI-Powered Course Builder" will appear continuously and change position at regular intervals, preserving the original audio.
+A FastAPI-based service for adding watermarks to videos with dynamic position changes. This service automatically uploads processed videos to AWS S3.
 
 ## Features
 
-- Add watermarks with custom text
-- Continuous watermark throughout the video
-- **Automatic watermark calculation**: Number of watermarks is calculated based on video duration
-- **One watermark every 10 seconds** (or custom interval) by default
-- Position changes every X seconds (configurable)
-- Random positioning (top-left, top-right, bottom-left, bottom-right, center)
-- Preserves original audio using FFmpeg
-- Semi-transparent watermark with background
-- Support for multiple video formats (mp4, avi, mov, mkv, wmv)
+- **Dynamic Watermark Positioning**: Watermarks change position every specified interval (default: 10 seconds)
+- **Fixed Position Option**: Option to use a fixed watermark position
+- **Multi-line Text Support**: Support for multi-line watermark text
+- **S3 Integration**: Automatic upload to AWS S3 with configurable bucket
+- **Video Format Support**: Supports MP4, AVI, MOV, MKV, WMV formats
+- **Audio Preservation**: Maintains original audio in processed videos
+- **Health Monitoring**: Built-in health check and S3 connectivity testing
+
+## FastAPI Conversion
+
+This service has been converted from Flask to FastAPI for better compatibility with Modal and improved performance. Key changes include:
+
+- **Async/Await Support**: All endpoints are now async for better performance
+- **Automatic API Documentation**: FastAPI provides automatic OpenAPI/Swagger documentation
+- **Better Type Safety**: Enhanced type checking and validation
+- **CORS Middleware**: Built-in CORS support for cross-origin requests
+- **Improved Error Handling**: Better HTTP exception handling
 
 ## Installation
 
-1. Install the required dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
+2. Set up environment variables (create a `.env` file):
+```env
+AWS_S3_BUCKET_NAME=your-s3-bucket-name
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+```
+
 ## Usage
 
-### Command Line Usage
+### Starting the Server
 
-```bash
-python video_watermark.py input_video.mp4 output_video.mp4
-```
-
-#### Optional Parameters:
-- `--watermark-text`: Custom watermark text (default: "Created using LisaApp.in\nAI-Powered Course Builder")
-- `--change-interval`: Interval in seconds between position changes (default: 10.0)
-- `--font-size`: Font size for watermark text (default: 18)
-- `--fixed-position`: Fixed watermark position (values: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
-
-#### Examples:
-
-```bash
-# Basic usage
-python video_watermark.py AI_Powered_Visualizations.mp4 watermarked_video.mp4
-
-# Custom watermark text
-python video_watermark.py input.mp4 output.mp4 --watermark-text "Created using LisaApp.in\nAI-Powered Course Builder"
-
-# Change position every 15 seconds
-python video_watermark.py input.mp4 output.mp4 --change-interval 15.0
-
-# Custom font size
-python video_watermark.py input.mp4 output.mp4 --font-size 14
-
-# Fixed position watermark
-python video_watermark.py input.mp4 output.mp4 --fixed-position bottom-right
-```
-
-### API Usage (for Postman)
-
-1. Start the API server:
 ```bash
 python api_wrapper.py
 ```
 
-2. The API will be available at `http://localhost:5001`
-
-### S3 Configuration (Optional)
-
-To upload watermarked videos to S3, set the following environment variables:
-
+Or using uvicorn directly:
 ```bash
-export AWS_S3_BUCKET_NAME=your-s3-bucket-name
-export AWS_REGION=us-east-1
-export AWS_ACCESS_KEY_ID=your-aws-access-key-id
-export AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+uvicorn api_wrapper:app --host 0.0.0.0 --port 5001
 ```
 
-When S3 is configured, the API will:
-- Upload the final watermarked video to S3
-- Return an S3 URL in the response
-- Clean up local files after upload
-- Return both `s3_url` and `download_url` fields in the response
+### API Endpoints
 
-#### API Endpoints:
+#### 1. Add Watermark (`POST /watermark`)
 
-**POST /watermark**
-- Upload a video file and add watermarks
-- Form data:
-  - `video`: Video file (required)
-  - `watermark_text`: Watermark text (optional, default: "Created using LisaApp.in\nAI-Powered Course Builder")
-  - `change_interval`: Interval in seconds between position changes (optional, default: 10.0)
-  - `font_size`: Font size for watermark text (optional, default: 18)
-  - `fixed_position`: Fixed watermark position (optional, values: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
+Add watermarks to a video file.
 
-**Response includes:**
-- `s3_url`: Direct S3 URL to download the watermarked video (when S3 is configured)
-- `download_url`: Same as s3_url (for backward compatibility)
-- `fixed_position`: The fixed position used (if specified)
-- `num_watermarks`: Automatically calculated number of watermarks based on video duration
-- `video_duration`: Duration of the video in seconds
-- `watermarks_per_minute`: Number of watermarks per minute
-- `timestamps`: Array of timestamps when watermark positions change
+**Parameters:**
+- `video` (file): Video file to process
+- `watermark_text` (string, optional): Text for watermark (default: "Created using LisaApp.in\nAI-Powered Course Builder")
+- `change_interval` (float, optional): Interval in seconds between position changes (default: 10.0)
+- `font_size` (int, optional): Font size for watermark text (default: 18)
+- `fixed_position` (string, optional): Fixed position ('top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
 
-**GET /download/<filename>**
-- Download the processed video file
+**Example Request:**
+```bash
+curl -X POST "http://localhost:5001/watermark" \
+  -H "Content-Type: multipart/form-data" \
+  -F "video=@input_video.mp4" \
+  -F "watermark_text=Your Custom Text" \
+  -F "change_interval=5.0" \
+  -F "font_size=20" \
+  -F "fixed_position=bottom-right"
+```
 
-**GET /health**
-- Health check endpoint with S3 configuration status
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Video watermarked successfully and uploaded to S3",
+  "input_file": "input_video.mp4",
+  "output_file": "watermarked_input_video.mp4",
+  "s3_url": "https://bucket.s3.region.amazonaws.com/watermarked-videos/watermarked_input_video.mp4",
+  "download_url": "https://bucket.s3.region.amazonaws.com/watermarked-videos/watermarked_input_video.mp4",
+  "parameters": {
+    "watermark_text": "Your Custom Text",
+    "change_interval": 5.0,
+    "font_size": 20,
+    "fixed_position": "bottom-right",
+    "video_duration": 120.5,
+    "num_watermarks": 25,
+    "watermarks_per_minute": 12.0,
+    "timestamps": [0.0, 5.0, 10.0, ...]
+  }
+}
+```
 
-#### Postman Setup:
+#### 2. Health Check (`GET /health`)
 
-1. Create a new POST request to `http://localhost:5000/watermark`
-2. Set the request body to `form-data`
-3. Add the following fields:
-   - `video` (type: File) - Select your video file
-   - `watermark_text` (type: Text) - Optional watermark text (use \n for line breaks)
-   - `change_interval` (type: Text) - Optional interval in seconds between position changes
+Check service health and S3 configuration status.
 
-4. Send the request and you'll get a JSON response with the download URL
+**Response:**
+```json
+{
+  "status": "healthy",
+  "message": "Video watermarking API is running",
+  "s3_status": "configured",
+  "s3_bucket": "your-bucket-name"
+}
+```
 
-## How It Works
+#### 3. Test S3 (`GET /test-s3`)
 
-1. **Video Analysis**: The script reads the input video and extracts properties (fps, resolution, duration)
-2. **Watermark Calculation**: Automatically calculates the number of watermarks based on video duration
-   - One watermark every 10 seconds (or custom interval)
-   - Minimum of 1 watermark for any video
-3. **Position Changes**: Generates timestamps for watermark position changes every X seconds
-4. **Random Positions**: For each position change, selects a random position from 5 possible locations
-5. **Watermark Creation**: Creates a semi-transparent watermark with the specified text
-6. **Frame Processing**: Processes each frame and adds watermarks continuously
-7. **Audio Preservation**: Uses FFmpeg to merge the processed video with original audio
-8. **Output**: Saves the processed video with watermarks and original audio
+Test S3 connectivity and bucket access.
 
-## Watermark Positions
+**Response:**
+```json
+{
+  "success": true,
+  "message": "S3 connection successful",
+  "bucket": "your-bucket-name",
+  "region": "us-east-1",
+  "access_key_id": "AKIA..."
+}
+```
 
-The watermark can appear in these positions:
-- Top-left corner
-- Top-right corner  
-- Bottom-left corner
-- Bottom-right corner
-- Center of the video
+#### 4. Download File (`GET /download/{filename}`)
 
-**Position Selection Logic:**
-- Positions change every 10 seconds (or custom interval)
-- **No consecutive repeats**: The same position will never appear twice in a row
-- **Random selection**: Each position change randomly selects from the 5 available positions
-- **Varied distribution**: All positions are used throughout the video
+Download processed video files (fallback when S3 is not configured).
 
-## Supported Video Formats
+#### 5. Check Video (`GET /check-video/{filename}`)
 
-- MP4
-- AVI
-- MOV
-- MKV
-- WMV
+Check video file properties using ffprobe.
 
-## Requirements
+## Watermark Positioning
 
-- Python 3.7+
-- OpenCV
-- Pillow (PIL)
-- NumPy
-- Flask (for API usage)
+The service supports two positioning modes:
 
-## Notes
+### Dynamic Positioning (Default)
+- Watermarks change position every specified interval
+- 5 possible positions: corners and center
+- No consecutive repeats (same position never appears twice in a row)
+- Random selection ensures varied distribution
 
-- The watermark has a semi-transparent black background for better visibility
-- Each watermark appears for the specified duration (default: 3 seconds)
-- The script shows progress during processing
-- Output videos are saved in MP4 format 
+### Fixed Positioning
+- Use a single position throughout the video
+- Options: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'
+
+## Testing
+
+Run the test script to verify the service:
+
+```bash
+python test_fastapi.py
+```
+
+## API Documentation
+
+FastAPI automatically generates interactive API documentation. Visit:
+- Swagger UI: `http://localhost:5001/docs`
+- ReDoc: `http://localhost:5001/redoc`
+
+## Modal Compatibility
+
+This FastAPI version is designed to be more compatible with Modal deployment:
+
+- **Async Support**: Better handling of concurrent requests
+- **Type Safety**: Enhanced validation and error handling
+- **Performance**: Improved response times and resource usage
+- **Documentation**: Automatic API documentation generation
+
+## Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `AWS_S3_BUCKET_NAME` | S3 bucket name for uploads | Yes |
+| `AWS_REGION` | AWS region (default: us-east-1) | No |
+| `AWS_ACCESS_KEY_ID` | AWS access key | Yes |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key | Yes |
+
+## Dependencies
+
+- `fastapi`: Web framework
+- `uvicorn[standard]`: ASGI server
+- `python-multipart`: File upload support
+- `opencv-python`: Video processing
+- `Pillow`: Image processing
+- `numpy`: Numerical operations
+- `boto3`: AWS S3 integration
+- `python-dotenv`: Environment variable management 

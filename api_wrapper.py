@@ -1,8 +1,10 @@
 import os
 import tempfile
 import json
-from flask import Flask, request, jsonify, send_file
-from werkzeug.utils import secure_filename
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Response
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 from video_watermark import VideoWatermarker
 import uuid
 import boto3
@@ -12,7 +14,20 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__)
+app = FastAPI(
+    title="Video Watermarking API",
+    description="API for adding watermarks to videos with position changes",
+    version="1.0.0"
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Configure upload folder
 UPLOAD_FOLDER = 'uploads'
@@ -91,8 +106,14 @@ def upload_to_s3(file_path, filename):
         print(f"❌ Upload error: {str(e)}")
         raise Exception(f"Failed to upload to S3: {str(e)}")
 
-@app.route('/watermark', methods=['POST'])
-def add_watermark():
+@app.post("/watermark")
+async def add_watermark(
+    video: UploadFile = File(...),
+    watermark_text: str = Form("Created using LisaApp.in\nAI-Powered Course Builder"),
+    change_interval: float = Form(10.0),
+    font_size: int = Form(18),
+    fixed_position: Optional[str] = Form(None)
+):
     """
     API endpoint to add watermarks to video
     
@@ -101,6 +122,7 @@ def add_watermark():
     - watermark_text: text for watermark (optional, default: "Created using LisaApp.in - AI-Powered Course Builder")
     - change_interval: interval in seconds between watermark position changes (optional, default: 10.0)
     - font_size: font size for watermark text (optional, default: 18)
+    - fixed_position: fixed position for watermark (optional: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
     
     The number of watermarks is automatically calculated based on video duration:
     - One watermark every 10 seconds (or specified change_interval)
@@ -113,35 +135,29 @@ def add_watermark():
     """
     try:
         # Check if video file is present
-        if 'video' not in request.files:
-            return jsonify({'error': 'No video file provided'}), 400
+        if not video:
+            raise HTTPException(status_code=400, detail="No video file provided")
         
-        video_file = request.files['video']
+        if video.filename == '':
+            raise HTTPException(status_code=400, detail="No video file selected")
         
-        if video_file.filename == '':
-            return jsonify({'error': 'No video file selected'}), 400
-        
-        if not allowed_file(video_file.filename):
-            return jsonify({'error': 'Invalid file type. Allowed: mp4, avi, mov, mkv, wmv'}), 400
-        
-        # Get parameters
-        watermark_text = request.form.get('watermark_text', 'Created using LisaApp.in\nAI-Powered Course Builder')
-        change_interval = float(request.form.get('change_interval', 10.0))
-        font_size = int(request.form.get('font_size', 18))
-        fixed_position = request.form.get('fixed_position', None)  # Optional: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'
-        
-        # Calculate number of watermarks based on video duration
-        # We'll determine this after loading the video
+        if not allowed_file(video.filename):
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file type. Allowed: mp4, avi, mov, mkv, wmv"
+            )
         
         # Generate unique filename
         unique_id = str(uuid.uuid4())
-        input_filename = secure_filename(video_file.filename)
+        input_filename = video.filename
         input_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{input_filename}")
         output_filename = f"watermarked_{input_filename}"
         output_path = os.path.join(OUTPUT_FOLDER, f"{unique_id}_{output_filename}")
         
         # Save uploaded file
-        video_file.save(input_path)
+        with open(input_path, "wb") as buffer:
+            content = await video.read()
+            buffer.write(content)
         
         # Process video
         watermarker = VideoWatermarker(input_path, watermark_text, font_size, fixed_position)
@@ -196,81 +212,104 @@ def add_watermark():
             }
         }
         
-        return jsonify(response), 200
+        return JSONResponse(content=response, status_code=200)
         
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/download/<filename>', methods=['GET'])
-def download_file(filename):
+@app.get("/download/{filename}")
+async def download_file(filename: str):
     """Download the processed video file (fallback for when S3 is not configured)"""
     try:
         file_path = os.path.join(OUTPUT_FOLDER, filename)
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True)
+            return FileResponse(
+                path=file_path,
+                filename=filename,
+                media_type='video/mp4'
+            )
         else:
-            return jsonify({'error': 'File not found. If S3 is configured, use the s3_url from the watermark response.'}), 404
+            raise HTTPException(
+                status_code=404, 
+                detail="File not found. If S3 is configured, use the s3_url from the watermark response."
+            )
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@app.route('/health', methods=['GET'])
-def health_check():
+@app.get("/health")
+async def health_check():
     """Health check endpoint"""
     s3_status = 'configured' if s3_client else 'not_configured'
-    return jsonify({
+    return {
         'status': 'healthy', 
         'message': 'Video watermarking API is running',
         's3_status': s3_status,
         's3_bucket': S3_BUCKET if S3_BUCKET else None
-    }), 200
+    }
 
-@app.route('/test-s3', methods=['GET'])
-def test_s3():
+@app.get("/test-s3")
+async def test_s3():
     """Test S3 connectivity and bucket access"""
     if not s3_client:
-        return jsonify({
-            'error': 'S3 client not configured',
-            'missing_vars': [var for var, val in {
-                'AWS_S3_BUCKET_NAME': os.getenv('AWS_S3_BUCKET_NAME'),
-                'AWS_REGION': os.getenv('AWS_REGION'),
-                'AWS_ACCESS_KEY_ID': AWS_ACCESS_KEY_ID,
-                'AWS_SECRET_ACCESS_KEY': AWS_SECRET_ACCESS_KEY
-            }.items() if not val]
-        }), 400
+        missing_vars = []
+        if not S3_BUCKET:
+            missing_vars.append("AWS_S3_BUCKET_NAME or S3_BUCKET")
+        if not AWS_ACCESS_KEY_ID:
+            missing_vars.append("AWS_ACCESS_KEY_ID")
+        if not AWS_SECRET_ACCESS_KEY:
+            missing_vars.append("AWS_SECRET_ACCESS_KEY")
+        
+        raise HTTPException(
+            status_code=400,
+            detail={
+                'error': 'S3 client not configured',
+                'missing_vars': missing_vars
+            }
+        )
     
     try:
         # Test bucket access
         s3_client.head_bucket(Bucket=S3_BUCKET)
-        return jsonify({
+        return {
             'success': True,
             'message': 'S3 connection successful',
             'bucket': S3_BUCKET,
             'region': S3_REGION,
             'access_key_id': AWS_ACCESS_KEY_ID[:10] + '...' if AWS_ACCESS_KEY_ID else None
-        }), 200
+        }
     except ClientError as e:
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
-        return jsonify({
-            'error': f'S3 connection failed: {error_code}',
-            'message': error_message,
-            'bucket': S3_BUCKET,
-            'region': S3_REGION
-        }), 400
+        raise HTTPException(
+            status_code=400,
+            detail={
+                'error': f'S3 connection failed: {error_code}',
+                'message': error_message,
+                'bucket': S3_BUCKET,
+                'region': S3_REGION
+            }
+        )
     except Exception as e:
-        return jsonify({
-            'error': f'S3 connection failed: {str(e)}',
-            'bucket': S3_BUCKET,
-            'region': S3_REGION
-        }), 400
+        raise HTTPException(
+            status_code=400,
+            detail={
+                'error': f'S3 connection failed: {str(e)}',
+                'bucket': S3_BUCKET,
+                'region': S3_REGION
+            }
+        )
 
-@app.route('/check-video/<filename>', methods=['GET'])
-def check_video(filename):
+@app.get("/check-video/{filename}")
+async def check_video(filename: str):
     """Check video file properties using ffprobe"""
     try:
         file_path = os.path.join(OUTPUT_FOLDER, filename)
         if not os.path.exists(file_path):
-            return jsonify({'error': 'File not found'}), 404
+            raise HTTPException(status_code=404, detail="File not found")
         
         import subprocess
         
@@ -283,7 +322,6 @@ def check_video(filename):
         result = subprocess.run(cmd, capture_output=True, text=True)
         
         if result.returncode == 0:
-            import json
             video_info = json.loads(result.stdout)
             
             # Extract useful information
@@ -293,7 +331,7 @@ def check_video(filename):
             video_streams = [s for s in streams if s.get('codec_type') == 'video']
             audio_streams = [s for s in streams if s.get('codec_type') == 'audio']
             
-            return jsonify({
+            return {
                 'success': True,
                 'file_path': file_path,
                 'file_size': format_info.get('size'),
@@ -304,15 +342,21 @@ def check_video(filename):
                 'audio_codec': audio_streams[0].get('codec_name') if audio_streams else None,
                 'resolution': f"{video_streams[0].get('width')}x{video_streams[0].get('height')}" if video_streams else None,
                 'fps': video_streams[0].get('r_frame_rate') if video_streams else None
-            }), 200
+            }
         else:
-            return jsonify({
-                'error': 'Failed to analyze video',
-                'ffprobe_error': result.stderr
-            }), 400
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    'error': 'Failed to analyze video',
+                    'ffprobe_error': result.stderr
+                }
+            )
             
+    except HTTPException:
+        raise
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001) 
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=5001) 

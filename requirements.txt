@@ -1,7 +1,8 @@
 opencv-python
 Pillow
 numpy
-Flask
-Werkzeug
+fastapi
+uvicorn[standard]
+python-multipart
 boto3
 python-dotenv 
