@@ -2,4 +2,6 @@ opencv-python
 Pillow
 numpy
 Flask
-Werkzeug 
+Werkzeug
+boto3
+python-dotenv 

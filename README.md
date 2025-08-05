@@ -57,7 +57,24 @@ python video_watermark.py input.mp4 output.mp4 --font-size 14
 python api_wrapper.py
 ```
 
-2. The API will be available at `http://localhost:5000`
+2. The API will be available at `http://localhost:5001`
+
+### S3 Configuration (Optional)
+
+To upload watermarked videos to S3, set the following environment variables:
+
+```bash
+export AWS_S3_BUCKET_NAME=your-s3-bucket-name
+export AWS_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=your-aws-access-key-id
+export AWS_SECRET_ACCESS_KEY=your-aws-secret-access-key
+```
+
+When S3 is configured, the API will:
+- Upload the final watermarked video to S3
+- Return an S3 URL in the response
+- Clean up local files after upload
+- Return both `s3_url` and `download_url` fields in the response
 
 #### API Endpoints:
 
@@ -70,6 +87,8 @@ python api_wrapper.py
   - `font_size`: Font size for watermark text (optional, default: 18)
 
 **Response includes:**
+- `s3_url`: Direct S3 URL to download the watermarked video (when S3 is configured)
+- `download_url`: Same as s3_url (for backward compatibility)
 - `num_watermarks`: Automatically calculated number of watermarks based on video duration
 - `video_duration`: Duration of the video in seconds
 - `watermarks_per_minute`: Number of watermarks per minute
@@ -79,7 +98,7 @@ python api_wrapper.py
 - Download the processed video file
 
 **GET /health**
-- Health check endpoint
+- Health check endpoint with S3 configuration status
 
 #### Postman Setup:
 

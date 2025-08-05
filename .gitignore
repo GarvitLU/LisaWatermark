@@ -205,17 +205,49 @@ $RECYCLE.BIN/
 
 # Log files
 *.log
+*.log.*
+logs/
+*.out
+*.err
+
+# Temporary processing files
+temp/
+tmp/
+*.tmp
+*.temp
+processing_*
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
 
+# Cache and session files
+.cache/
+cache/
+sessions/
+session_*
+cache_*
+
 # Configuration files with sensitive data
 config.ini
 secrets.json
 .env.local
 .env.production
+.env
+.env.*
+!.env.example
+
+# AWS credentials and configuration
+.aws/
+aws-credentials.json
+aws-config.json
+credentials
+config
+
+# S3 and cloud storage
+s3-*.json
+cloud-*.json
 
 # Large media files (if any get accidentally added)
 *.mp4

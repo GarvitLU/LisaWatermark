@@ -219,8 +219,8 @@ class VideoWatermarker:
         watermark_img = self.create_watermark_image(self.watermark_text, self.font_size)
         watermark_height, watermark_width = watermark_img.shape[:2]
         
-        # Setup video writer with audio codec
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Setup video writer with H.264 codec for better compatibility
+        fourcc = cv2.VideoWriter_fourcc(*'H264')
         temp_output = output_path.replace('.mp4', '_temp.mp4')
         out = cv2.VideoWriter(temp_output, fourcc, self.fps, (self.width, self.height))
         
@@ -276,38 +276,43 @@ class VideoWatermarker:
                 'ffmpeg', '-y',  # Overwrite output file
                 '-i', temp_output,  # Input video (without audio)
                 '-i', self.video_path,  # Input original video (with audio)
-                '-c:v', 'copy',  # Copy video stream
+                '-c:v', 'libx264',  # Use H.264 codec for video
                 '-c:a', 'aac',  # Use AAC codec for audio
+                '-preset', 'fast',  # Faster encoding
+                '-crf', '23',  # Good quality
                 '-map', '0:v:0',  # Use video from first input
                 '-map', '1:a:0',  # Use audio from second input
                 output_path  # Output file
             ]
             
+            print(f"Running FFmpeg command: {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
                 # Remove temporary file
                 import os
                 os.remove(temp_output)
-                print(f"Video processing complete! Output saved to: {output_path}")
+                print(f"✅ Video processing complete! Output saved to: {output_path}")
+                print(f"✅ Audio merged successfully")
             else:
-                print(f"Warning: Could not merge audio. Using video without audio.")
+                print(f"❌ Warning: Could not merge audio. Using video without audio.")
                 print(f"FFmpeg error: {result.stderr}")
+                print(f"FFmpeg stdout: {result.stdout}")
                 # If ffmpeg fails, just rename the temp file
                 import os
                 os.rename(temp_output, output_path)
-                print(f"Video processing complete! Output saved to: {output_path} (no audio)")
+                print(f"⚠️ Video processing complete! Output saved to: {output_path} (no audio)")
                 
         except FileNotFoundError:
-            print("Warning: FFmpeg not found. Using video without audio.")
+            print("❌ Warning: FFmpeg not found. Using video without audio.")
             import os
             os.rename(temp_output, output_path)
-            print(f"Video processing complete! Output saved to: {output_path} (no audio)")
+            print(f"⚠️ Video processing complete! Output saved to: {output_path} (no audio)")
         except Exception as e:
-            print(f"Warning: Error merging audio: {e}")
+            print(f"❌ Warning: Error merging audio: {e}")
             import os
             os.rename(temp_output, output_path)
-            print(f"Video processing complete! Output saved to: {output_path} (no audio)")
+            print(f"⚠️ Video processing complete! Output saved to: {output_path} (no audio)")
     
     def __del__(self):
         """Cleanup when object is destroyed"""
