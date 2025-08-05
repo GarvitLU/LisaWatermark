@@ -33,6 +33,7 @@ python video_watermark.py input_video.mp4 output_video.mp4
 - `--watermark-text`: Custom watermark text (default: "Created using LisaApp.in\nAI-Powered Course Builder")
 - `--change-interval`: Interval in seconds between position changes (default: 10.0)
 - `--font-size`: Font size for watermark text (default: 18)
+- `--fixed-position`: Fixed watermark position (values: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
 
 #### Examples:
 
@@ -48,6 +49,9 @@ python video_watermark.py input.mp4 output.mp4 --change-interval 15.0
 
 # Custom font size
 python video_watermark.py input.mp4 output.mp4 --font-size 14
+
+# Fixed position watermark
+python video_watermark.py input.mp4 output.mp4 --fixed-position bottom-right
 ```
 
 ### API Usage (for Postman)
@@ -85,10 +89,12 @@ When S3 is configured, the API will:
   - `watermark_text`: Watermark text (optional, default: "Created using LisaApp.in\nAI-Powered Course Builder")
   - `change_interval`: Interval in seconds between position changes (optional, default: 10.0)
   - `font_size`: Font size for watermark text (optional, default: 18)
+  - `fixed_position`: Fixed watermark position (optional, values: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
 
 **Response includes:**
 - `s3_url`: Direct S3 URL to download the watermarked video (when S3 is configured)
 - `download_url`: Same as s3_url (for backward compatibility)
+- `fixed_position`: The fixed position used (if specified)
 - `num_watermarks`: Automatically calculated number of watermarks based on video duration
 - `video_duration`: Duration of the video in seconds
 - `watermarks_per_minute`: Number of watermarks per minute

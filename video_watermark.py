@@ -7,7 +7,7 @@ from typing import List, Tuple
 import argparse
 
 class VideoWatermarker:
-    def __init__(self, video_path: str, watermark_text: str = "Created using LisaApp.in\nAI-Powered Course Builder", font_size: int = 18):
+    def __init__(self, video_path: str, watermark_text: str = "Created using LisaApp.in\nAI-Powered Course Builder", font_size: int = 18, fixed_position: str = None):
         """
         Initialize the video watermarker
         
@@ -15,10 +15,12 @@ class VideoWatermarker:
             video_path (str): Path to the input video file
             watermark_text (str): Text to use as watermark
             font_size (int): Font size for watermark text
+            fixed_position (str): Fixed position for watermark ('top-left', 'top-right', 'bottom-left', 'bottom-right', 'center')
         """
         self.video_path = video_path
         self.watermark_text = watermark_text
         self.font_size = font_size
+        self.fixed_position = fixed_position
         self.cap = cv2.VideoCapture(video_path)
         
         if not self.cap.isOpened():
@@ -36,6 +38,10 @@ class VideoWatermarker:
         print(f"  FPS: {self.fps}")
         print(f"  Resolution: {self.width}x{self.height}")
         print(f"  Total frames: {self.frame_count}")
+        if self.fixed_position:
+            print(f"  Fixed watermark position: {self.fixed_position}")
+        else:
+            print(f"  Random watermark positions (changing every interval)")
     
     def create_watermark_image(self, text: str, font_size: int = 18, color: Tuple[int, int, int] = (255, 255, 255)) -> np.ndarray:
         """
@@ -116,6 +122,35 @@ class VideoWatermarker:
             available_positions = positions
         
         return random.choice(available_positions)
+    
+    def get_fixed_position(self, watermark_width: int, watermark_height: int) -> Tuple[int, int]:
+        """
+        Get a fixed position for the watermark based on the specified position
+        
+        Args:
+            watermark_width (int): Width of watermark
+            watermark_height (int): Height of watermark
+            
+        Returns:
+            Tuple[int, int]: (x, y) position
+        """
+        if not self.fixed_position:
+            return self.get_random_position(watermark_width, watermark_height)
+        
+        # Define fixed positions
+        positions = {
+            'top-left': (10, 10),
+            'top-right': (self.width - watermark_width - 10, 10),
+            'bottom-left': (10, self.height - watermark_height - 10),
+            'bottom-right': (self.width - watermark_width - 10, self.height - watermark_height - 10),
+            'center': ((self.width - watermark_width) // 2, (self.height - watermark_height) // 2)
+        }
+        
+        if self.fixed_position.lower() not in positions:
+            print(f"Warning: Invalid position '{self.fixed_position}'. Using 'bottom-right' instead.")
+            return positions['bottom-right']
+        
+        return positions[self.fixed_position.lower()]
     
     def get_position_change_timestamps(self, change_interval: float = 10.0) -> List[float]:
         """
@@ -210,10 +245,13 @@ class VideoWatermarker:
         
         print(f"Watermark Configuration:")
         print(f"  Video duration: {watermark_info['video_duration']:.2f} seconds")
-        print(f"  Change interval: {watermark_info['change_interval']} seconds")
-        print(f"  Number of watermarks: {watermark_info['num_watermarks']}")
-        print(f"  Watermarks per minute: {watermark_info['watermarks_per_minute']:.1f}")
-        print(f"  Position change timestamps: {[f'{t:.2f}s' for t in timestamps]}")
+        if self.fixed_position:
+            print(f"  Fixed position: {self.fixed_position}")
+        else:
+            print(f"  Change interval: {watermark_info['change_interval']} seconds")
+            print(f"  Number of watermarks: {watermark_info['num_watermarks']}")
+            print(f"  Watermarks per minute: {watermark_info['watermarks_per_minute']:.1f}")
+            print(f"  Position change timestamps: {[f'{t:.2f}s' for t in timestamps]}")
         
         # Create watermark image
         watermark_img = self.create_watermark_image(self.watermark_text, self.font_size)
@@ -229,9 +267,16 @@ class VideoWatermarker:
         
         # Process each frame
         current_frame = 0
-        current_position = self.get_random_position(watermark_width, watermark_height)
-        previous_position = None
-        current_timestamp_index = 0
+        
+        if self.fixed_position:
+            # Use fixed position throughout the video
+            current_position = self.get_fixed_position(watermark_width, watermark_height)
+            print(f"Using fixed position: {self.fixed_position} at {current_position}")
+        else:
+            # Use random positions that change over time
+            current_position = self.get_random_position(watermark_width, watermark_height)
+            previous_position = None
+            current_timestamp_index = 0
         
         print("Processing video...")
         
@@ -242,8 +287,8 @@ class VideoWatermarker:
             
             current_time = current_frame / self.fps
             
-            # Check if we need to change watermark position
-            if (current_timestamp_index < len(timestamps) and 
+            # Check if we need to change watermark position (only for random mode)
+            if not self.fixed_position and (current_timestamp_index < len(timestamps) and 
                 current_time >= timestamps[current_timestamp_index]):
                 
                 previous_position = current_position
@@ -326,20 +371,25 @@ def main():
     parser.add_argument('--watermark-text', default='Created using LisaApp.in\nAI-Powered Course Builder', help='Watermark text')
     parser.add_argument('--change-interval', type=float, default=10.0, help='Interval in seconds between position changes')
     parser.add_argument('--font-size', type=int, default=18, help='Font size for watermark text')
+    parser.add_argument('--fixed-position', choices=['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'], 
+                       help='Fixed watermark position (if specified, position will not change)')
     
     args = parser.parse_args()
     
     try:
         # Create watermarker
-        watermarker = VideoWatermarker(args.input_video, args.watermark_text, args.font_size)
+        watermarker = VideoWatermarker(args.input_video, args.watermark_text, args.font_size, args.fixed_position)
         
         # Show watermark information
         watermark_info = watermarker.calculate_watermark_info(args.change_interval)
         print(f"\nWatermark Summary:")
         print(f"  Video duration: {watermark_info['video_duration']:.2f} seconds")
-        print(f"  Change interval: {watermark_info['change_interval']} seconds")
-        print(f"  Number of watermarks: {watermark_info['num_watermarks']}")
-        print(f"  Watermarks per minute: {watermark_info['watermarks_per_minute']:.1f}")
+        if args.fixed_position:
+            print(f"  Fixed position: {args.fixed_position}")
+        else:
+            print(f"  Change interval: {watermark_info['change_interval']} seconds")
+            print(f"  Number of watermarks: {watermark_info['num_watermarks']}")
+            print(f"  Watermarks per minute: {watermark_info['watermarks_per_minute']:.1f}")
         
         # Process video
         watermarker.process_video(

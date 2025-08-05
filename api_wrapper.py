@@ -128,6 +128,7 @@ def add_watermark():
         watermark_text = request.form.get('watermark_text', 'Created using LisaApp.in\nAI-Powered Course Builder')
         change_interval = float(request.form.get('change_interval', 10.0))
         font_size = int(request.form.get('font_size', 18))
+        fixed_position = request.form.get('fixed_position', None)  # Optional: 'top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'
         
         # Calculate number of watermarks based on video duration
         # We'll determine this after loading the video
@@ -143,7 +144,7 @@ def add_watermark():
         video_file.save(input_path)
         
         # Process video
-        watermarker = VideoWatermarker(input_path, watermark_text, font_size)
+        watermarker = VideoWatermarker(input_path, watermark_text, font_size, fixed_position)
         
         # Calculate number of watermarks based on video duration
         watermark_info = watermarker.calculate_watermark_info(change_interval)
@@ -187,6 +188,7 @@ def add_watermark():
                 'watermark_text': watermark_text,
                 'change_interval': change_interval,
                 'font_size': font_size,
+                'fixed_position': fixed_position,
                 'video_duration': round(video_duration, 2),
                 'num_watermarks': num_watermarks,
                 'watermarks_per_minute': round(watermark_info['watermarks_per_minute'], 1),
