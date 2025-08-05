@@ -35,10 +35,10 @@ OUTPUT_FOLDER = 'outputs'
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv', 'wmv'}
 
 # S3 Configuration
-S3_BUCKET = os.getenv('AWS_S3_BUCKET_NAME') or os.getenv('S3_BUCKET')
-S3_REGION = os.getenv('AWS_REGION') or os.getenv('S3_REGION', 'us-east-1')
-AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+S3_BUCKET = os.getenv('S3_BUCKET_NAME') or os.getenv('AWS_S3_BUCKET_NAME')
+S3_REGION = os.getenv('S3_REGION') or os.getenv('AWS_REGION', 'us-east-1')
+AWS_ACCESS_KEY_ID = os.getenv('S3_ACCESS_KEY') or os.getenv('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = os.getenv('S3_SECRET_KEY') or os.getenv('AWS_SECRET_ACCESS_KEY')
 
 # Initialize S3 client
 s3_client = None
