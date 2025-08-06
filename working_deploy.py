@@ -39,7 +39,8 @@ image = (
         "Pillow",
         "numpy",
         "boto3",
-        "python-dotenv"
+        "python-dotenv",
+        "requests"
     )
     .add_local_file("api_wrapper.py", "/root/api_wrapper.py")
     .add_local_file("video_watermark.py", "/root/video_watermark.py")

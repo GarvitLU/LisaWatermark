@@ -10,6 +10,8 @@ import uuid
 import boto3
 from botocore.exceptions import ClientError
 from dotenv import load_dotenv
+import requests
+import urllib.parse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -72,6 +74,46 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def download_from_s3_url(s3_url: str) -> str:
+    """Download video from S3 URL and return local file path"""
+    try:
+        print(f"📥 Downloading from S3 URL: {s3_url}")
+        
+        # Parse S3 URL to get bucket and key
+        parsed_url = urllib.parse.urlparse(s3_url)
+        if 's3.amazonaws.com' not in parsed_url.netloc:
+            raise Exception("Invalid S3 URL format")
+        
+        # Extract bucket and key from URL
+        path_parts = parsed_url.path.lstrip('/').split('/')
+        bucket = path_parts[0]
+        key = '/'.join(path_parts[1:])
+        
+        print(f"🔍 Parsed S3 URL - Bucket: {bucket}, Key: {key}")
+        
+        # Download file using requests
+        response = requests.get(s3_url, stream=True)
+        response.raise_for_status()
+        
+        # Generate unique filename
+        unique_id = str(uuid.uuid4())
+        filename = os.path.basename(key) or f"video_{unique_id}.mp4"
+        local_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{filename}")
+        
+        # Save file
+        with open(local_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        file_size = os.path.getsize(local_path)
+        print(f"✅ Downloaded {file_size} bytes to {local_path}")
+        
+        return local_path
+        
+    except Exception as e:
+        print(f"❌ Error downloading from S3 URL: {e}")
+        raise Exception(f"Failed to download from S3 URL: {str(e)}")
+
 def upload_to_s3(file_path, filename):
     """Upload file to S3 and return the URL"""
     if not s3_client:
@@ -108,7 +150,8 @@ def upload_to_s3(file_path, filename):
 
 @app.post("/watermark")
 async def add_watermark(
-    video: UploadFile = File(...),
+    video: Optional[UploadFile] = File(None),
+    s3_url: Optional[str] = Form(None),
     watermark_text: str = Form("Created using LisaApp.in\nAI-Powered Course Builder"),
     change_interval: float = Form(10.0),
     font_size: int = Form(18),
@@ -118,7 +161,8 @@ async def add_watermark(
     API endpoint to add watermarks to video
     
     Expected form data:
-    - video: video file
+    - video: video file (optional if s3_url is provided)
+    - s3_url: S3 URL of video to process (optional if video file is provided)
     - watermark_text: text for watermark (optional, default: "Created using LisaApp.in - AI-Powered Course Builder")
     - change_interval: interval in seconds between watermark position changes (optional, default: 10.0)
     - font_size: font size for watermark text (optional, default: 18)
@@ -134,30 +178,48 @@ async def add_watermark(
     - Random selection ensures varied distribution
     """
     try:
-        # Check if video file is present
-        if not video:
-            raise HTTPException(status_code=400, detail="No video file provided")
+        # Check if either video file or S3 URL is provided
+        if not video and not s3_url:
+            raise HTTPException(status_code=400, detail="Either video file or s3_url must be provided")
         
-        if video.filename == '':
-            raise HTTPException(status_code=400, detail="No video file selected")
-        
-        if not allowed_file(video.filename):
-            raise HTTPException(
-                status_code=400, 
-                detail="Invalid file type. Allowed: mp4, avi, mov, mkv, wmv"
-            )
+        if video and s3_url:
+            raise HTTPException(status_code=400, detail="Provide either video file or s3_url, not both")
         
         # Generate unique filename
         unique_id = str(uuid.uuid4())
-        input_filename = video.filename
-        input_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{input_filename}")
+        input_path = None
+        input_filename = None
+        
+        if video:
+            # Handle file upload
+            if video.filename == '':
+                raise HTTPException(status_code=400, detail="No video file selected")
+            
+            if not allowed_file(video.filename):
+                raise HTTPException(
+                    status_code=400, 
+                    detail="Invalid file type. Allowed: mp4, avi, mov, mkv, wmv"
+                )
+            
+            input_filename = video.filename
+            input_path = os.path.join(UPLOAD_FOLDER, f"{unique_id}_{input_filename}")
+            
+            # Save uploaded file
+            with open(input_path, "wb") as buffer:
+                content = await video.read()
+                buffer.write(content)
+                
+        elif s3_url:
+            # Handle S3 URL
+            if not s3_url.startswith('https://') and 's3.amazonaws.com' not in s3_url:
+                raise HTTPException(status_code=400, detail="Invalid S3 URL format")
+            
+            # Download from S3 URL
+            input_path = download_from_s3_url(s3_url)
+            input_filename = os.path.basename(input_path)
+        
         output_filename = f"watermarked_{input_filename}"
         output_path = os.path.join(OUTPUT_FOLDER, f"{unique_id}_{output_filename}")
-        
-        # Save uploaded file
-        with open(input_path, "wb") as buffer:
-            content = await video.read()
-            buffer.write(content)
         
         # Process video
         watermarker = VideoWatermarker(input_path, watermark_text, font_size, fixed_position)
