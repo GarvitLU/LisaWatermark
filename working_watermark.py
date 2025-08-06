@@ -257,15 +257,13 @@ class VideoWatermarker:
         watermark_img = self.create_watermark_image(self.watermark_text, self.font_size)
         watermark_height, watermark_width = watermark_img.shape[:2]
         
-        # Use a simple codec that's guaranteed to work
-        temp_output = output_path.replace('.mp4', '_temp.avi')
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        # Setup video writer with H.264 codec for better compatibility
+        fourcc = cv2.VideoWriter_fourcc(*'H264')
+        temp_output = output_path.replace('.mp4', '_temp.mp4')
         out = cv2.VideoWriter(temp_output, fourcc, self.fps, (self.width, self.height))
         
         if not out.isOpened():
             raise ValueError(f"Could not create output video: {temp_output}")
-        
-        print(f"✅ Successfully opened video writer with XVID codec")
         
         # Process each frame
         current_frame = 0
