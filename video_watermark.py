@@ -55,41 +55,63 @@ class VideoWatermarker:
         Returns:
             np.ndarray: Watermark image as numpy array
         """
+        print(f"DEBUG: Creating watermark with font_size={font_size}")
+        
         # Split text into lines
         lines = text.split('\n')
         
         # Try to use a default font, fallback to default if not available
+        font = None
         try:
             font = ImageFont.truetype("arial.ttf", font_size)
+            print(f"DEBUG: Loaded arial.ttf with size {font_size}")
         except:
             try:
                 font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", font_size)
+                print(f"DEBUG: Loaded Arial.ttf with size {font_size}")
             except:
-                font = ImageFont.load_default()
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", font_size)
+                    print(f"DEBUG: Loaded DejaVuSans.ttf with size {font_size}")
+                except:
+                    font = ImageFont.load_default()
+                    print(f"DEBUG: Using default font with size {font_size}")
         
-        # Calculate total height for all lines
-        line_height = font_size + 4  # Add some padding between lines
-        total_height = line_height * len(lines)
-        
-        # Find the widest line
+        # Calculate text dimensions
         max_width = 0
+        total_height = 0
+        
         for line in lines:
             bbox = ImageDraw.Draw(Image.new('RGBA', (1, 1))).textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
             max_width = max(max_width, line_width)
+            total_height += line_height
+            print(f"DEBUG: Line '{line}' - width={line_width}, height={line_height}")
         
-        # Create a new image with just the text
-        text_img = Image.new('RGBA', (max_width + 20, total_height + 20), (0, 0, 0, 0))
+        print(f"DEBUG: Total dimensions - width={max_width}, height={total_height}")
+        
+        # Add proportional padding based on font size
+        padding = max(6, font_size // 8)  # Proportional padding: minimum 6px, or 1/8 of font size
+        bottom_padding = padding + 4  # Extra padding at the bottom
+        img_width = max_width + padding * 2
+        img_height = total_height + padding + bottom_padding
+        
+        print(f"DEBUG: Image dimensions - width={img_width}, height={img_height}")
+        
+        # Create image
+        text_img = Image.new('RGBA', (img_width, img_height), (0, 0, 0, 0))
         text_draw = ImageDraw.Draw(text_img)
         
         # Add semi-transparent background
-        text_draw.rectangle([0, 0, max_width + 20, total_height + 20], 
-                          fill=(0, 0, 0, 128))
+        text_draw.rectangle([0, 0, img_width, img_height], fill=(0, 0, 0, 128))
         
-        # Draw each line
-        for i, line in enumerate(lines):
-            y_position = 10 + (i * line_height)
-            text_draw.text((10, y_position), line, font=font, fill=color)
+        # Draw text
+        y_offset = padding
+        for line in lines:
+            text_draw.text((padding, y_offset), line, font=font, fill=color)
+            bbox = text_draw.textbbox((0, 0), line, font=font)
+            y_offset += bbox[3] - bbox[1]
         
         # Convert to numpy array
         return np.array(text_img)
@@ -257,15 +279,39 @@ class VideoWatermarker:
         watermark_img = self.create_watermark_image(self.watermark_text, self.font_size)
         watermark_height, watermark_width = watermark_img.shape[:2]
         
-        # Use a simple codec that's guaranteed to work
-        temp_output = output_path.replace('.mp4', '_temp.avi')
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(temp_output, fourcc, self.fps, (self.width, self.height))
+        # Try different codecs in order of preference
+        codecs_to_try = [
+            ('mp4v', 'mp4v'),  # MP4V codec
+            ('avc1', 'avc1'),  # AVC1 codec
+            ('XVID', 'XVID'),  # XVID codec
+            ('MJPG', 'MJPG'),  # Motion JPEG
+        ]
         
-        if not out.isOpened():
-            raise ValueError(f"Could not create output video: {temp_output}")
+        temp_output = output_path.replace('.mp4', '_temp.mp4')
+        out = None
         
-        print(f"✅ Successfully opened video writer with XVID codec")
+        # Try each codec until one works
+        for codec_name, fourcc_code in codecs_to_try:
+            try:
+                print(f"Trying codec: {codec_name}")
+                fourcc = cv2.VideoWriter_fourcc(*fourcc_code)
+                out = cv2.VideoWriter(temp_output, fourcc, self.fps, (self.width, self.height))
+                
+                if out.isOpened():
+                    print(f"✅ Successfully opened video writer with codec: {codec_name}")
+                    break
+                else:
+                    print(f"❌ Failed to open video writer with codec: {codec_name}")
+                    if out:
+                        out.release()
+            except Exception as e:
+                print(f"❌ Error with codec {codec_name}: {e}")
+                if out:
+                    out.release()
+                continue
+        
+        if not out or not out.isOpened():
+            raise ValueError(f"Could not create output video with any codec. Tried: {[c[0] for c in codecs_to_try]}")
         
         # Process each frame
         current_frame = 0
